@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Discover — EventBuddy{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Discover</h1>
+        <p class="page-subtitle">Swipe through events near you</p>
+    </div>
+</div>
+
+<div class="swipe-container">
+    <div class="swipe-deck" id="swipeDeck">
+        {% for event in events %}
+        <div class="swipe-card" data-index="{{ loop.index0 }}">
+            <div class="swipe-type-badge {{ event.event_type|lower }}">{{ event.event_type }}</div>
+            <h2 class="swipe-title">{{ event.title }}</h2>
+            <div class="swipe-meta">
+                <span>📍 {{ event.location }}</span>
+                <span>⏰ {{ event.event_time[:16] }}</span>
+            </div>
+            {% if event.description %}
+            <p class="swipe-desc">{{ event.description[:150] }}{% if event.description|length > 150 %}…{% endif %}</p>
+            {% endif %}
+            <div class="swipe-creator">
+                <div class="avatar-sm" style="background:{{ event.avatar_color }}">{{ event.creator_name[0] }}</div>
+                <div>
+                    <div>{{ event.creator_name }}</div>
+                    <div class="creator-rating">★ {{ '%.1f'|format(event.avg_rating or 0) }}</div>
+                </div>
+                <span class="status-tag status-{{ 'free' if event.user_status == 'Free' else 'busy' }}">{{ event.user_status }}</span>
+            </div>
+            <div class="swipe-map">
+                <iframe src="https://maps.google.com/maps?q={{ event.location | urlencode }}&output=embed&z=12"
+                    width="100%" height="140" style="border:0;border-radius:10px;" loading="lazy"></iframe>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state" style="position:relative;">
+            <div class="empty-icon">🌐</div>
+            <h3>No events to discover</h3>
+            <p>Check back later or create your own!</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if events %}
+    <div class="swipe-controls">
+        <button class="swipe-btn skip" onclick="skipCard()">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="swipe-counter" id="swipeCounter">1 / {{ events|length }}</div>
+        <button class="swipe-btn like" onclick="likeCard()">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="connect-modal" id="connectModal" style="display:none;">
+    <div class="modal-content">
+        <h3>🎉 Interested!</h3>
+        <p id="modalText">Send a connection request?</p>
+        <div class="modal-btns">
+            <button class="btn-primary" id="modalConnect">Send Request</button>
+            <button class="btn-secondary" onclick="closeModal()">Maybe Later</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const events = {{ events | tojson }};
+let currentIndex = 0;
+
+function getCard(index) {
+    return document.querySelector(`.swipe-card[data-index="${index}"]`);
+}
+
+function updateCounter() {
+    document.getElementById('swipeCounter').textContent =
+        `${currentIndex + 1} / ${events.length}`;
+}
+
+function animateCard(direction, callback) {
+    const card = getCard(currentIndex);
+    if (!card) return;
+    card.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+    card.style.transform = `translateX(${direction * 400}px) rotate(${direction * 15}deg)`;
+    card.style.opacity = '0';
+    setTimeout(() => { card.style.display = 'none'; callback && callback(); }, 400);
+}
+
+function nextCard() {
+    currentIndex++;
+    if (currentIndex >= events.length) {
+        document.getElementById('swipeDeck').innerHTML = `
+            <div class="empty-state" style="position:relative;">
+                <div class="empty-icon">✅</div>
+                <h3>You've seen all events!</h3>
+                <p>Check back later for more.</p>
+                <a href="/dashboard" class="btn-primary">Back to Dashboard</a>
+            </div>`;
+        document.querySelector('.swipe-controls') && (document.querySelector('.swipe-controls').style.display = 'none');
+        return;
+    }
+    const next = getCard(currentIndex);
+    if (next) { next.style.zIndex = 10; updateCounter(); }
+}
+
+function skipCard() {
+    animateCard(-1, nextCard);
+}
+
+function likeCard() {
+    const event = events[currentIndex];
+    if (!event) return;
+    animateCard(1, () => {
+        document.getElementById('modalText').textContent =
+            `Connect with ${event.creator_name} for "${event.title}"?`;
+        const modal = document.getElementById('connectModal');
+        modal.style.display = 'flex';
+        document.getElementById('modalConnect').onclick = async () => {
+            await fetch('/requests/send', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({receiver_id: event.user_id, event_id: event.id})
+            });
+            closeModal();
+            nextCard();
+        };
+    });
+}
+
+function closeModal() {
+    document.getElementById('connectModal').style.display = 'none';
+    nextCard();
+}
+
+// Keyboard support
+document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') skipCard();
+    if (e.key === 'ArrowRight') likeCard();
+});
+</script>
+{% endblock %}

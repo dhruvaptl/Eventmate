@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.name }} — EventBuddy{% endblock %}
+{% block content %}
+<div class="profile-wrapper">
+    <div class="profile-hero" style="--accent:{{ profile_user.avatar_color }}">
+        <div class="profile-avatar-lg" style="background:{{ profile_user.avatar_color }}">
+            {{ profile_user.name[0] }}
+        </div>
+        <div class="profile-info">
+            <h1>{{ profile_user.name }}</h1>
+            <div class="profile-status {{ 'status-free' if profile_user.status == 'Free' else 'status-busy' }}">
+                <span class="status-dot"></span> {{ profile_user.status }}
+            </div>
+            <div class="profile-rating">
+                <span class="stars">
+                    {% for i in range(1, 6) %}
+                    <span class="star {% if i <= avg_rating %}filled{% endif %}">★</span>
+                    {% endfor %}
+                </span>
+                <span class="rating-num">{{ avg_rating }} <small>({{ rating_count }} ratings)</small></span>
+            </div>
+        </div>
+        {% if not is_own %}
+        <div class="profile-cta">
+            <a href="{{ url_for('chat.chat', other_id=profile_user.id) }}" class="btn-primary">💬 Chat</a>
+            <button class="btn-secondary" onclick="sendConnectRequest({{ profile_user.id }})">Connect</button>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if profile_user.bio %}
+    <div class="profile-section">
+        <h3>About</h3>
+        <p>{{ profile_user.bio }}</p>
+    </div>
+    {% endif %}
+
+    {% if is_own %}
+    <div class="profile-section">
+        <h3>Update Bio</h3>
+        <textarea id="bioInput" rows="3" placeholder="Tell others about yourself…">{{ profile_user.bio }}</textarea>
+        <button class="btn-primary mt-sm" onclick="saveBio()">Save Bio</button>
+    </div>
+    {% endif %}
+
+    {% if not is_own %}
+    <div class="profile-section">
+        <h3>Rate {{ profile_user.name }}</h3>
+        <div class="star-rating" id="starRating">
+            {% for i in range(1, 6) %}
+            <span class="rate-star {% if i <= my_rating %}selected{% endif %}"
+                  data-val="{{ i }}" onclick="rateUser({{ i }})">★</span>
+            {% endfor %}
+        </div>
+        <div id="ratingMsg" class="rating-msg"></div>
+    </div>
+    {% endif %}
+
+    <div class="profile-section">
+        <h3>Events Created ({{ events|length }})</h3>
+        <div class="events-mini-grid">
+            {% for event in events %}
+            <div class="event-mini-card">
+                <div class="event-type-badge {{ event.event_type|lower }}">{{ event.event_type }}</div>
+                <div class="event-mini-title">{{ event.title }}</div>
+                <div class="event-mini-meta">📍 {{ event.location }} • {{ event.event_time[:10] }}</div>
+            </div>
+            {% else %}
+            <p class="muted">No events created yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+const PROFILE_USER_ID = {{ profile_user.id }};
+
+async function rateUser(score) {
+    document.querySelectorAll('.rate-star').forEach((s, i) => {
+        s.classList.toggle('selected', i < score);
+    });
+    const res = await fetch('/rate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({rated_id: PROFILE_USER_ID, score})
+    });
+    const data = await res.json();
+    if (data.success) {
+        document.getElementById('ratingMsg').textContent = `Rated ${score}/5 ★  (Avg: ${data.avg})`;
+    }
+}
+
+async function sendConnectRequest(userId) {
+    const res = await fetch('/requests/send', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({receiver_id: userId})
+    });
+    const data = await res.json();
+    alert(data.success ? 'Connection request sent!' : (data.error || 'Error'));
+}
+
+async function saveBio() {
+    const bio = document.getElementById('bioInput').value;
+    const fd = new FormData();
+    fd.append('bio', bio);
+    const res = await fetch('/profile/update', {method:'POST', body: fd});
+    const data = await res.json();
+    if (data.success) alert('Bio updated!');
+}
+</script>
+{% endblock %}

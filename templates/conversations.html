@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Conversations — EventBuddy{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Messages</h1>
+        <p class="page-subtitle">Your conversations</p>
+    </div>
+</div>
+
+<div class="conv-list">
+    {% for conv in convs %}
+    <a href="{{ url_for('chat.chat', other_id=conv.other_id) }}" class="conv-item">
+        <div class="conv-avatar" style="background:{{ conv.avatar_color }}">{{ conv.name[0] }}</div>
+        <div class="conv-info">
+            <div class="conv-name">{{ conv.name }}</div>
+            <div class="conv-last">{{ conv.last_msg[:60] if conv.last_msg else '...' }}</div>
+        </div>
+        <div class="conv-meta">
+            <span class="status-dot-sm {{ 'free' if conv.status == 'Free' else 'busy' }}"></span>
+            <span class="conv-time">{{ conv.last_msg_time[:10] if conv.last_msg_time else '' }}</span>
+        </div>
+    </a>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">💬</div>
+        <h3>No conversations yet</h3>
+        <p>Connect with event creators to start chatting</p>
+        <a href="{{ url_for('events.dashboard') }}" class="btn-primary">Browse Events</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Chat with {{ other_user.name }} — EventBuddy{% endblock %}
+{% block content %}
+<div class="chat-wrapper">
+    <div class="chat-header">
+        <a href="{{ url_for('chat.conversations') }}" class="back-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <div class="chat-avatar" style="background:{{ other_user.avatar_color }}">{{ other_user.name[0] }}</div>
+        <div class="chat-user-info">
+            <h3>{{ other_user.name }}</h3>
+            <span class="status-indicator {{ 'free' if other_user.status == 'Free' else 'busy' }}">{{ other_user.status }}</span>
+        </div>
+        <div class="chat-actions-top">
+            <a href="{{ url_for('profile.profile', user_id=other_user.id) }}" class="btn-sm">Profile</a>
+        </div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+        {% for msg in messages %}
+        <div class="message {% if msg.sender_id == session.user_id %}sent{% else %}received{% endif %}">
+            <div class="msg-bubble">{{ msg.content }}</div>
+            <div class="msg-time">{{ msg.created_at[:16] }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="chat-input-area">
+        <input type="text" id="msgInput" placeholder="Type a message…" autocomplete="off">
+        <button id="sendBtn" onclick="sendMessage()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+    </div>
+</div>
+
+<script>
+const OTHER_ID = {{ other_user.id }};
+const MY_ID = {{ session.user_id }};
+
+function scrollToBottom() {
+    const el = document.getElementById('chatMessages');
+    el.scrollTop = el.scrollHeight;
+}
+
+function renderMessages(messages) {
+    const el = document.getElementById('chatMessages');
+    el.innerHTML = messages.map(m => `
+        <div class="message ${m.sender_id == MY_ID ? 'sent' : 'received'}">
+            <div class="msg-bubble">${escapeHtml(m.content)}</div>
+            <div class="msg-time">${m.created_at.slice(0,16)}</div>
+        </div>
+    `).join('');
+    scrollToBottom();
+}
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(text));
+    return d.innerHTML;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('msgInput');
+    const content = input.value.trim();
+    if (!content) return;
+    input.value = '';
+
+    const res = await fetch('/chat/send', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({receiver_id: OTHER_ID, content})
+    });
+    const data = await res.json();
+    if (data.messages) renderMessages(data.messages);
+}
+
+async function pollMessages() {
+    const res = await fetch(`/chat/poll/${OTHER_ID}`);
+    const messages = await res.json();
+    renderMessages(messages);
+}
+
+document.getElementById('msgInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+scrollToBottom();
+setInterval(pollMessages, 2500);
+</script>
+{% endblock %}

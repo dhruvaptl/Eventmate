@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Requests — EventBuddy{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Connections</h1>
+        <p class="page-subtitle">Manage your event buddy requests</p>
+    </div>
+</div>
+
+<div class="tabs">
+    <button class="tab-btn active" data-tab="incoming">Incoming ({{ incoming|length }})</button>
+    <button class="tab-btn" data-tab="sent">Sent ({{ sent|length }})</button>
+    <button class="tab-btn" data-tab="connected">Connected ({{ accepted|length }})</button>
+</div>
+
+<div class="tab-content active" id="tab-incoming">
+    {% for req in incoming %}
+    <div class="request-card" id="req-{{ req.id }}">
+        <a href="{{ url_for('profile.profile', user_id=req.sender_id) }}" class="req-user">
+            <div class="avatar-sm" style="background:{{ req.avatar_color }}">{{ req.sender_name[0] }}</div>
+            <div>
+                <div class="req-name">{{ req.sender_name }}</div>
+                <div class="req-meta">{{ req.sender_status }} • {{ req.event_title or 'General request' }}</div>
+            </div>
+        </a>
+        <div class="req-actions">
+            <button class="btn-accept" onclick="handleRequest({{ req.id }}, 'accept')">Accept</button>
+            <button class="btn-decline" onclick="handleRequest({{ req.id }}, 'decline')">Decline</button>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state-sm">No incoming requests</div>
+    {% endfor %}
+</div>
+
+<div class="tab-content" id="tab-sent">
+    {% for req in sent %}
+    <div class="request-card">
+        <a href="{{ url_for('profile.profile', user_id=req.receiver_id) }}" class="req-user">
+            <div class="avatar-sm" style="background:{{ req.avatar_color }}">{{ req.receiver_name[0] }}</div>
+            <div>
+                <div class="req-name">{{ req.receiver_name }}</div>
+                <div class="req-meta">{{ req.event_title or 'General request' }}</div>
+            </div>
+        </a>
+        <span class="status-tag status-{{ req.status }}">{{ req.status }}</span>
+    </div>
+    {% else %}
+    <div class="empty-state-sm">No sent requests</div>
+    {% endfor %}
+</div>
+
+<div class="tab-content" id="tab-connected">
+    {% for conn in accepted %}
+    <div class="request-card">
+        <a href="{{ url_for('profile.profile', user_id=conn.other_id) }}" class="req-user">
+            <div class="avatar-sm" style="background:{{ conn.avatar_color }}">{{ conn.other_name[0] }}</div>
+            <div>
+                <div class="req-name">{{ conn.other_name }}</div>
+                <div class="req-meta">Connected via: {{ conn.event_title or 'General' }}</div>
+            </div>
+        </a>
+        <div class="req-actions">
+            <a href="{{ url_for('chat.chat', other_id=conn.other_id) }}" class="btn-chat-sm">Chat</a>
+            <a href="{{ url_for('profile.profile', user_id=conn.other_id) }}" class="btn-sm">Rate</a>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state-sm">No connections yet</div>
+    {% endfor %}
+</div>
+{% endblock %}
